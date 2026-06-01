@@ -1,0 +1,487 @@
+openapi: 3.0.3
+info:
+  title: Jales Bookstore API
+  description: |
+    ## Jales QE Academy — Bookstore API
+
+    API REST para prática de testes de API na **Academia de Testes do Jales**.
+
+    ### Fluxo básico
+    1. Crie um usuário via `POST /Account/v1/User`
+    2. Gere um token via `POST /Account/v1/GenerateToken`
+    3. Use o token como `Bearer {token}` nos endpoints protegidos
+    4. Explore os livros e gerencie sua coleção
+
+    ### Autenticação
+    Endpoints protegidos requerem header: `Authorization: Bearer {token}`
+  version: "1.0.0"
+  contact:
+    name: Jales QE Academy
+  license:
+    name: MIT
+
+servers:
+  - url: /
+    description: Servidor atual
+
+tags:
+  - name: Account
+    description: Gerenciamento de usuários e autenticação
+  - name: BookStore
+    description: Catálogo de livros e coleção do usuário
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Token JWT obtido via POST /Account/v1/GenerateToken"
+
+  schemas:
+    UserCredentials:
+      type: object
+      required:
+        - userName
+        - password
+      properties:
+        userName:
+          type: string
+          example: jales_user
+        password:
+          type: string
+          example: Senha@123
+          description: "Mínimo 8 caracteres, letras maiúsculas, minúsculas, número e caractere especial"
+
+    UserCreated:
+      type: object
+      properties:
+        userID:
+          type: string
+          format: uuid
+          example: "abc12345-0000-0000-0000-000000000001"
+        username:
+          type: string
+          example: jales_user
+        books:
+          type: array
+          items:
+            $ref: '#/components/schemas/Book'
+
+    TokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          nullable: true
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expires:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-12-31T23:59:59.000Z"
+        status:
+          type: string
+          enum: [Success, Failed]
+          example: Success
+        result:
+          type: string
+          example: "User authorized successfully."
+
+    Book:
+      type: object
+      properties:
+        isbn:
+          type: string
+          example: "9781449325862"
+        title:
+          type: string
+          example: "Git Pocket Guide"
+        subTitle:
+          type: string
+          example: "A Working Introduction"
+        author:
+          type: string
+          example: "Richard E. Silverman"
+        publish_date:
+          type: string
+          format: date
+          example: "2013-08-02"
+        publisher:
+          type: string
+          example: "O'Reilly Media"
+        pages:
+          type: integer
+          example: 234
+        description:
+          type: string
+        website:
+          type: string
+          format: uri
+
+    IsbnItem:
+      type: object
+      required:
+        - isbn
+      properties:
+        isbn:
+          type: string
+          example: "9781449325862"
+
+    AddBooksRequest:
+      type: object
+      required:
+        - userId
+        - collectionOfIsbns
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: "abc12345-0000-0000-0000-000000000001"
+        collectionOfIsbns:
+          type: array
+          items:
+            $ref: '#/components/schemas/IsbnItem'
+
+    ReplaceBookRequest:
+      type: object
+      required:
+        - userId
+        - isbn
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: "abc12345-0000-0000-0000-000000000001"
+        isbn:
+          type: string
+          example: "9781449331818"
+
+    RemoveBookRequest:
+      type: object
+      required:
+        - isbn
+        - userId
+      properties:
+        isbn:
+          type: string
+          example: "9781449325862"
+        userId:
+          type: string
+          format: uuid
+          example: "abc12345-0000-0000-0000-000000000001"
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "1200"
+        message:
+          type: string
+          example: "User not authorized!"
+
+paths:
+  /Account/v1/User:
+    post:
+      tags: [Account]
+      summary: Criar novo usuário
+      description: Cria um novo usuário na plataforma. A senha deve ter no mínimo 8 caracteres, letras maiúsculas, minúsculas, números e caractere especial.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCredentials'
+      responses:
+        '201':
+          description: Usuário criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCreated'
+        '400':
+          description: Dados inválidos ou senha fraca
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '406':
+          description: Usuário já existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /Account/v1/GenerateToken:
+    post:
+      tags: [Account]
+      summary: Gerar token JWT
+      description: Autentica o usuário e retorna um token JWT válido por 1 hora.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCredentials'
+      responses:
+        '200':
+          description: Token gerado (verifique o campo `status` para saber se a autenticação foi bem-sucedida)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+  /Account/v1/Authorized:
+    post:
+      tags: [Account]
+      summary: Verificar autorização
+      description: Verifica se o token informado é válido.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCredentials'
+      responses:
+        '200':
+          description: Autorizado
+          content:
+            application/json:
+              schema:
+                type: boolean
+                example: true
+        '401':
+          description: Não autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /Account/v1/User/{UUID}:
+    get:
+      tags: [Account]
+      summary: Buscar usuário por ID
+      description: Retorna os dados do usuário incluindo sua coleção de livros. Requer token JWT.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: UUID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "abc12345-0000-0000-0000-000000000001"
+      responses:
+        '200':
+          description: Dados do usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCreated'
+        '401':
+          description: Não autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Account]
+      summary: Deletar usuário
+      description: Remove o usuário permanentemente. Requer token JWT.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: UUID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "abc12345-0000-0000-0000-000000000001"
+      responses:
+        '204':
+          description: Usuário deletado com sucesso
+        '401':
+          description: Não autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /BookStore/v1/Books:
+    get:
+      tags: [BookStore]
+      summary: Listar todos os livros
+      description: Retorna o catálogo completo de livros disponíveis. Endpoint público, sem autenticação.
+      responses:
+        '200':
+          description: Lista de livros
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  books:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Book'
+
+    post:
+      tags: [BookStore]
+      summary: Adicionar livros à coleção do usuário
+      description: Adiciona um ou mais livros à coleção do usuário autenticado.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddBooksRequest'
+      responses:
+        '201':
+          description: Livros adicionados com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  books:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IsbnItem'
+        '400':
+          description: ISBN inválido ou já na coleção
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Não autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [BookStore]
+      summary: Remover todos os livros da coleção
+      description: Remove todos os livros da coleção do usuário informado via query param.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: UserId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "abc12345-0000-0000-0000-000000000001"
+      responses:
+        '204':
+          description: Coleção limpa com sucesso
+        '401':
+          description: Não autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /BookStore/v1/Book:
+    get:
+      tags: [BookStore]
+      summary: Buscar livro por ISBN
+      description: Retorna os detalhes de um livro específico. Endpoint público.
+      parameters:
+        - name: ISBN
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "9781449325862"
+      responses:
+        '200':
+          description: Dados do livro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '400':
+          description: ISBN não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [BookStore]
+      summary: Remover um livro da coleção
+      description: Remove um livro específico da coleção do usuário autenticado.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveBookRequest'
+      responses:
+        '204':
+          description: Livro removido com sucesso
+        '400':
+          description: ISBN não está na coleção
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Não autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /BookStore/v1/Books/{ISBN}:
+    put:
+      tags: [BookStore]
+      summary: Substituir livro na coleção
+      description: Substitui um livro já existente na coleção do usuário por outro ISBN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ISBN
+          in: path
+          required: true
+          description: ISBN do livro a ser substituído
+          schema:
+            type: string
+          example: "9781449325862"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceBookRequest'
+      responses:
+        '200':
+          description: Coleção atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCreated'
+        '400':
+          description: ISBN inválido ou já na coleção
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Não autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
