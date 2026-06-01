@@ -1,7 +1,7 @@
 # Jales Bookstore API 📚
 
-API REST para prática de testes na **Academia de Testes do Jales**.  
-Estrutura idêntica ao [ToolsQA Bookstore](https://bookstore.toolsqa.com/swagger/#/).
+API REST para prática de testes
+https://jales-bookstore-api-1.onrender.com/swagger
 
 ---
 
